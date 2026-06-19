@@ -10,7 +10,7 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(__dirname));
 
-// ==================== 数据库配置（已填入您的密码） ====================
+// ==================== 数据库配置 ====================
 const DB_CONFIG = {
   host: 'localhost',
   user: 'sql_tchat_uuli_top',
@@ -225,6 +225,7 @@ io.on('connection', (socket) => {
     console.log(`🆕 用户 ${finalNick} 创建房间 ${roomId}`);
   });
 
+  // ========== 修改 join_room：支持无密钥加入（自动补全） ==========
   socket.on('join_room', ({ roomId, nickname, key, ownerToken }) => {
     let room = rooms.get(roomId);
     let matchedRoomId = roomId;
@@ -242,11 +243,16 @@ io.on('connection', (socket) => {
       return;
     }
 
-    if (!key || key !== room.key) {
+    // 如果客户端未提供密钥，自动从房间获取
+    if (!key) {
+      key = room.key;
+      console.log(`🔑 自动提供密钥给客户端加入房间 ${matchedRoomId}`);
+    } else if (key !== room.key) {
       socket.emit('error_msg', '密钥错误，无法加入房间');
       return;
     }
 
+    // 房主重连逻辑（基于令牌）
     let isOwnerReconnect = false;
     if (ownerToken && room.ownerToken === ownerToken) {
       isOwnerReconnect = true;
@@ -336,7 +342,7 @@ io.on('connection', (socket) => {
                   console.log(`🧹 房间 ${roomId} 已销毁（房主退出）`);
                 }, 10000);
               }
-            }, 5000); // 👈 改为 5000 毫秒
+            }, 5000);
           } else {
             room.users.delete(nickname);
             socket.to(roomId).emit('user_left', nickname);

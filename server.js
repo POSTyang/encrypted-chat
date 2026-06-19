@@ -13,9 +13,9 @@ app.use(express.static(__dirname));
 // ==================== 数据库配置 ====================
 const DB_CONFIG = {
   host: 'localhost',
-  user: 'sql_tchat_uuli_top',
-  password: '59530f6024c1a',
-  database: 'sql_tchat_uuli_top',
+  user: '数据库名称',
+  password: '数据库密码',
+  database: '数据库名称',
   waitForConnections: true,
   connectionLimit: 10,
 };
@@ -191,7 +191,7 @@ app.get('/{*splat}', async (req, res, next) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: 'https://tchat.uuli.top',
+    origin: '您的网址',
     methods: ['GET', 'POST']
   }
 });

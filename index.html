@@ -7,7 +7,7 @@
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
   <style>
-    /* ===== 样式（与之前完全一致） ===== */
+    /* 样式与之前完全一致，此处省略，请保留您现有的完整样式 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', system-ui; background: #0b0e14; color: #e8edf5; height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
     .container { width: 100%; max-width: 800px; height: 90vh; background: rgba(26,29,39,0.92); border-radius: 28px; border: 1px solid rgba(255,255,255,0.06); overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.8); }
@@ -63,7 +63,7 @@
       <button class="btn" id="createRoomBtn">✨ 创建新房间</button>
       <div class="flex-row">
         <input id="joinRoomInput" placeholder="输入房间ID" />
-        <button class="btn btn-secondary" id="joinRoomBtn">加入</button>
+        <button class="btn btn-secondary" id="joinBtn">加入</button>
       </div>
     </div>
     <div style="font-size:13px;color:#8892a8;">💡 不填昵称将自动生成优美名字</div>
@@ -103,13 +103,10 @@
       reconnectionAttempts: 5,
     });
 
-    // ========== 合成“叮咚”提示音（Web Audio API） ==========
     function playNotificationSound() {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const now = ctx.currentTime;
-
-        // 高音 "叮" (1200Hz, 0.08s)
         const osc1 = ctx.createOscillator();
         const gain1 = ctx.createGain();
         osc1.connect(gain1);
@@ -121,7 +118,6 @@
         osc1.start(now);
         osc1.stop(now + 0.08);
 
-        // 低音 "咚" (800Hz, 0.12s, 延迟0.05s)
         const osc2 = ctx.createOscillator();
         const gain2 = ctx.createGain();
         osc2.connect(gain2);
@@ -133,12 +129,8 @@
         osc2.start(now + 0.05);
         osc2.stop(now + 0.17);
 
-        // 关闭上下文释放资源
         setTimeout(() => ctx.close(), 400);
-      } catch (e) {
-        // 静默失败，不影响聊天
-        console.warn('提示音播放失败:', e);
-      }
+      } catch (e) { console.warn('提示音播放失败:', e); }
     }
 
     // DOM 引用
@@ -147,7 +139,7 @@
     const nicknameInput = document.getElementById('nicknameInput');
     const createBtn = document.getElementById('createRoomBtn');
     const joinRoomInput = document.getElementById('joinRoomInput');
-    const joinBtn = document.getElementById('joinRoomBtn');
+    const joinBtn = document.getElementById('joinBtn');
     const roomIdDisplay = document.getElementById('roomIdDisplay');
     const shareLink = document.getElementById('shareLink');
     const copyLinkBtn = document.getElementById('copyLinkBtn');
@@ -284,7 +276,7 @@
     }
 
     function performAutoJoin(roomId, key, ownerToken) {
-      if (!roomId || !key) return;
+      if (!roomId) return;
       console.log(`🔄 自动加入房间 ${roomId}`);
       welcome.classList.add('hidden');
       welcome.style.display = 'none';
@@ -327,7 +319,7 @@
 
     socket.on('joined', (data) => {
       currentRoomId = data.roomId;
-      currentKey = data.key;
+      currentKey = data.key;  // 后端返回的密钥
       currentNickname = data.nickname;
       pendingJoin = null;
       showChat();
@@ -336,12 +328,10 @@
       addSystemMessage(`👋 已加入房间，昵称: ${data.nickname}`);
     });
 
-    // ========== 接收消息：播放提示音（他人消息） ==========
+    // ========== 接收消息 ==========
     socket.on('msg', async (data) => {
       if (!currentKey || !data || !data.cipher) return;
       if (data.sender === currentNickname) return;
-
-      // 播放提示音
       playNotificationSound();
 
       const key = await CryptoHelper.importKey(currentKey);
@@ -459,7 +449,6 @@
 
     // ---- 创建房间 ----
     createBtn.addEventListener('click', () => {
-      // 唤醒 AudioContext（某些浏览器需要用户手势）
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         if (ctx.state === 'suspended') ctx.resume();
@@ -469,8 +458,9 @@
       socket.emit('create_room', { nickname });
     });
 
-    // ---- 加入房间 ----
+    // ---- 加入房间（仅需房间号，密钥自动获取） ----
     joinBtn.addEventListener('click', () => {
+      console.log('✅ 加入按钮被点击');
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         if (ctx.state === 'suspended') ctx.resume();
@@ -480,20 +470,12 @@
         addSystemMessage('⚠️ 请输入房间ID');
         return;
       }
-      let key = currentKey;
-      if (!key) {
-        const hash = window.location.hash;
-        if (hash.startsWith('#key=')) key = hash.substring(5);
-      }
-      if (!key) {
-        addSystemMessage('⚠️ 缺少加密密钥，请通过完整链接进入');
-        return;
-      }
+      // 不需要携带 key，后端会自动补全
       const nickname = nicknameInput.value.trim() || undefined;
       const ownerToken = sessionStorage.getItem('ownerToken_' + roomId) || undefined;
-      console.log(`加入房间: ${roomId}, 有密钥: ${!!key}`);
+      console.log(`加入房间: ${roomId}, 房主令牌: ${!!ownerToken}`);
       addSystemMessage(`⏳ 正在加入房间 ${roomId}...`);
-      socket.emit('join_room', { roomId, nickname, key, ownerToken });
+      socket.emit('join_room', { roomId, nickname, ownerToken });  // 省略 key
     });
 
     joinRoomInput.addEventListener('keydown', (e) => {
@@ -516,14 +498,14 @@
       }
     });
 
-    // ---- URL 自动加入 ----
+    // ---- URL 自动加入（兼容旧链接） ----
     (function initFromUrl() {
       const params = new URLSearchParams(window.location.search);
       const room = params.get('room');
       const hash = window.location.hash;
       let key = null;
       if (hash.startsWith('#key=')) key = hash.substring(5);
-      if (room && key) {
+      if (room) {
         console.log('🔁 检测到分享链接，自动加入房间:', room);
         const ownerToken = sessionStorage.getItem('ownerToken_' + room) || undefined;
         if (socket.connected) {
@@ -540,7 +522,9 @@
       }
     })();
 
-    console.log('🔐 加密聊天客户端启动（合成“叮咚”提示音）');
+    console.log('🔐 加密聊天客户端启动（支持仅房间号加入）');
+    console.log('✅ joinBtn 元素:', joinBtn);
+    console.log('✅ socket 连接状态:', socket.connected);
   })();
 </script>
 </body>

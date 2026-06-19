@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>管理员后台</title>
+  <style>
+    /* 样式同之前，略（可保持不变） */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; background: linear-gradient(135deg, #0b0e14 0%, #1a1f2e 100%); display: flex; justify-content: center; align-items: center; padding: 20px; }
+    .container { width: 100%; max-width: 480px; }
+    .login-card { background: rgba(26, 29, 39, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); border-radius: 32px; padding: 48px 40px; box-shadow: 0 25px 60px rgba(0,0,0,0.6); text-align: center; }
+    .login-card h1 { font-size: 28px; font-weight: 700; background: linear-gradient(135deg, #e8edf5, #8fa0c0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+    .login-card .sub { color: #8892a8; font-size: 14px; margin-bottom: 32px; }
+    .input-group { display: flex; flex-direction: column; gap: 16px; }
+    .input-group input { padding: 16px 20px; border-radius: 16px; border: 1px solid #2e3444; background: #1e2330; color: #e8edf5; font-size: 15px; outline: none; transition: 0.3s; }
+    .input-group input:focus { border-color: #3ddc84; box-shadow: 0 0 0 3px rgba(61,220,132,0.15); }
+    .btn-login { padding: 16px; border-radius: 16px; border: none; background: linear-gradient(135deg, #3ddc84, #2bb673); color: #0f1117; font-weight: 700; font-size: 16px; cursor: pointer; transition: 0.2s; margin-top: 8px; }
+    .btn-login:hover { transform: scale(1.02); opacity: 0.9; }
+    .btn-login:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .error-msg { color: #ff5e5e; font-size: 14px; min-height: 24px; margin-top: 12px; }
+    .panel { display: none; max-width: 1000px; width: 100%; margin: 0 auto; }
+    .panel .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .panel .header h1 { font-size: 28px; color: #e8edf5; }
+    .panel .header .logout-btn { background: #2a2f3d; border: none; padding: 8px 20px; border-radius: 12px; color: #e8edf5; cursor: pointer; font-weight: 600; transition: 0.2s; }
+    .panel .header .logout-btn:hover { background: #3a4055; }
+    .card { background: rgba(26, 29, 39, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; padding: 24px; margin-bottom: 24px; }
+    .card h3 { color: #f5c542; font-size: 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 16px; }
+    .stat-item { background: #1e2330; padding: 16px; border-radius: 14px; text-align: center; }
+    .stat-item .num { font-size: 28px; font-weight: 700; color: #3ddc84; }
+    .stat-item .label { font-size: 13px; color: #8892a8; }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .row input { flex: 1; min-width: 120px; padding: 12px 16px; border-radius: 12px; border: 1px solid #2e3444; background: #1e2330; color: #e8edf5; font-size: 14px; outline: none; }
+    .row input:focus { border-color: #3ddc84; }
+    .row button { padding: 12px 20px; border-radius: 12px; border: none; background: #3ddc84; color: #0f1117; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .row button:hover { opacity: 0.85; }
+    .room-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
+    .room-list li { padding: 12px 0; border-bottom: 1px solid #2e3444; display: flex; justify-content: space-between; cursor: pointer; transition: 0.2s; color: #d0d7e6; }
+    .room-list li:hover { background: #252a37; padding-left: 8px; }
+    .room-list .users { color: #8892a8; font-size: 13px; }
+    .msg-log { max-height: 350px; overflow-y: auto; background: #0f1117; padding: 12px; border-radius: 10px; font-size: 13px; }
+    .msg-log div { padding: 6px 0; border-bottom: 1px solid #1a1d27; color: #e8edf5; }
+    .success { color: #3ddc84; margin-top: 8px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="container" id="loginContainer">
+  <div class="login-card">
+    <h1>👑 管理登录</h1>
+    <p class="sub">输入管理员凭证</p>
+    <div class="input-group">
+      <input id="adminUser" placeholder="用户名" />
+      <input id="adminPass" type="password" placeholder="密码" />
+      <button class="btn-login" id="adminLoginBtn">登录</button>
+      <div class="error-msg" id="loginError"></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="panelContainer">
+  <div class="header">
+    <h1>👑 管理员后台</h1>
+    <button class="logout-btn" id="logoutBtn">退出</button>
+  </div>
+
+  <div class="card">
+    <h3>📊 统计信息</h3>
+    <div class="stat-grid">
+      <div class="stat-item"><div class="num" id="onlineCount">0</div><div class="label">在线用户</div></div>
+      <div class="stat-item"><div class="num" id="roomCount">0</div><div class="label">活跃房间</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🔑 修改管理员信息</h3>
+    <div class="row">
+      <input id="newUsername" placeholder="新用户名" />
+      <button id="changeUsernameBtn">修改用户名</button>
+      <input id="newPassword" type="password" placeholder="新密码（至少6位）" />
+      <button id="changePasswordBtn">修改密码</button>
+    </div>
+    <div id="adminMsg" class="success"></div>
+  </div>
+
+  <div class="card">
+    <h3>⚙️ 自定义后台路径</h3>
+    <div class="row">
+      <input id="newPathInput" placeholder="例如 /myadmin" />
+      <button id="changePathBtn">更新路径</button>
+    </div>
+    <div style="font-size:13px;color:#8892a8;margin-top:6px;">当前路径: <span id="currentPathDisplay">/admin</span></div>
+    <div id="pathMsg" class="success"></div>
+  </div>
+
+  <div class="card">
+    <h3>🛋️ 房间列表</h3>
+    <ul class="room-list" id="roomList"></ul>
+  </div>
+
+  <div class="card">
+    <h3>📝 聊天记录（点击房间ID查看）</h3>
+    <div id="roomMessages" class="msg-log">选择房间查看消息</div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const SESSION_KEY = 'admin_token';
+
+    function getStoredToken() { return sessionStorage.getItem(SESSION_KEY); }
+    function setStoredToken(token) {
+      if (token) sessionStorage.setItem(SESSION_KEY, token);
+      else sessionStorage.removeItem(SESSION_KEY);
+    }
+    function clearSession() { setStoredToken(null); adminToken = null; }
+
+    const loginContainer = document.getElementById('loginContainer');
+    const panelContainer = document.getElementById('panelContainer');
+    const adminUser = document.getElementById('adminUser');
+    const adminPass = document.getElementById('adminPass');
+    const loginBtn = document.getElementById('adminLoginBtn');
+    const loginError = document.getElementById('loginError');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const onlineCount = document.getElementById('onlineCount');
+    const roomCount = document.getElementById('roomCount');
+    const roomList = document.getElementById('roomList');
+    const roomMessages = document.getElementById('roomMessages');
+    const newUsername = document.getElementById('newUsername');
+    const changeUsernameBtn = document.getElementById('changeUsernameBtn');
+    const newPassword = document.getElementById('newPassword');
+    const changePasswordBtn = document.getElementById('changePasswordBtn');
+    const adminMsg = document.getElementById('adminMsg');
+    const newPathInput = document.getElementById('newPathInput');
+    const changePathBtn = document.getElementById('changePathBtn');
+    const pathMsg = document.getElementById('pathMsg');
+    const currentPathDisplay = document.getElementById('currentPathDisplay');
+
+    let adminToken = null;
+
+    async function apiFetch(url, options = {}) {
+      const headers = { 'Content-Type': 'application/json', ...options.headers };
+      if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
+      const res = await fetch(url, { ...options, headers });
+      return res.json();
+    }
+
+    async function loadStats() {
+      const data = await apiFetch('/api/admin/stats');
+      if (!data.success) return;
+      onlineCount.textContent = data.onlineCount;
+      roomCount.textContent = data.rooms.length;
+      roomList.innerHTML = '';
+      data.rooms.forEach(room => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>🏠 ${room.roomId.substring(0,8)} (创建: ${room.creator})</span>
+                       <span class="users">👥 ${room.userCount} 人 | 💬 ${room.messageCount}</span>`;
+        li.onclick = () => loadRoomMessages(room.roomId);
+        roomList.appendChild(li);
+      });
+    }
+
+    async function loadRoomMessages(roomId) {
+      const data = await apiFetch(`/api/admin/room/${roomId}/messages`);
+      if (!data.success) { roomMessages.innerHTML = '无法加载消息'; return; }
+      roomMessages.innerHTML = '';
+      data.messages.forEach(msg => {
+        const div = document.createElement('div');
+        // 不再显示明文，只显示元数据
+        div.textContent = `[${new Date(msg.timestamp).toLocaleTimeString()}] ${msg.sender}: ${msg.type === 'image' ? '🖼️ 图片' : '💬 加密消息'}`;
+        roomMessages.appendChild(div);
+      });
+      if (data.messages.length === 0) roomMessages.innerHTML = '暂无消息';
+    }
+
+    async function loadCurrentPath() {
+      try {
+        const res = await fetch('/api/admin/current-path');
+        const data = await res.json();
+        if (data.success) currentPathDisplay.textContent = data.path;
+      } catch {}
+    }
+
+    async function performLogin(username, password) {
+      loginBtn.disabled = true;
+      loginError.textContent = '';
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          adminToken = data.token;
+          setStoredToken(adminToken);
+          showPanel();
+          loadStats();
+          loadCurrentPath();
+          setInterval(loadStats, 5000);
+          loginError.textContent = '';
+        } else {
+          loginError.textContent = data.message || '登录失败';
+        }
+      } catch (err) {
+        loginError.textContent = '网络错误，请重试';
+      } finally {
+        loginBtn.disabled = false;
+      }
+    }
+
+    function showPanel() {
+      loginContainer.style.display = 'none';
+      panelContainer.style.display = 'block';
+    }
+    function showLogin() {
+      loginContainer.style.display = 'block';
+      panelContainer.style.display = 'none';
+    }
+
+    async function tryAutoLogin() {
+      const token = getStoredToken();
+      if (!token) { showLogin(); return; }
+      adminToken = token;
+      try {
+        const data = await apiFetch('/api/admin/stats');
+        if (data.success) {
+          showPanel();
+          loadStats();
+          loadCurrentPath();
+          setInterval(loadStats, 5000);
+          return;
+        } else {
+          clearSession();
+          showLogin();
+        }
+      } catch (e) {
+        clearSession();
+        showLogin();
+      }
+    }
+
+    // 登录
+    loginBtn.addEventListener('click', () => {
+      const username = adminUser.value.trim();
+      const password = adminPass.value.trim();
+      if (!username || !password) { loginError.textContent = '请输入用户名和密码'; return; }
+      performLogin(username, password);
+    });
+    adminPass.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn.click(); });
+    adminUser.addEventListener('keydown', (e) => { if (e.key === 'Enter') adminPass.focus(); });
+    logoutBtn.addEventListener('click', () => { clearSession(); showLogin(); });
+
+    // 修改密码
+    changePasswordBtn.addEventListener('click', async () => {
+      const pass = newPassword.value.trim();
+      if (!pass || pass.length < 6) { adminMsg.textContent = '密码至少6位'; return; }
+      const data = await apiFetch('/api/admin/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ newPassword: pass })
+      });
+      adminMsg.textContent = data.message || (data.success ? '✅ 密码已更新，请重新登录' : '❌ 更新失败');
+      if (data.success) {
+        newPassword.value = '';
+        clearSession();
+        showLogin();
+        loginError.textContent = '密码已更新，请使用新密码登录';
+        setTimeout(() => loginError.textContent = '', 5000);
+      }
+    });
+
+    // 修改用户名
+    changeUsernameBtn.addEventListener('click', async () => {
+      const name = newUsername.value.trim();
+      if (!name || name.length < 3) { adminMsg.textContent = '用户名至少3位'; return; }
+      const data = await apiFetch('/api/admin/change-username', {
+        method: 'POST',
+        body: JSON.stringify({ newUsername: name })
+      });
+      adminMsg.textContent = data.message || (data.success ? '✅ 用户名已更新，请重新登录' : '❌ 更新失败');
+      if (data.success) {
+        newUsername.value = '';
+        clearSession();
+        showLogin();
+        loginError.textContent = '用户名已更新，请使用新用户名登录';
+        setTimeout(() => loginError.textContent = '', 5000);
+      }
+    });
+
+    // 修改路径
+    changePathBtn.addEventListener('click', async () => {
+      const newPath = newPathInput.value.trim();
+      if (!newPath || !newPath.startsWith('/') || newPath.length < 2) {
+        pathMsg.textContent = '路径必须以 / 开头且至少2个字符';
+        return;
+      }
+      const data = await apiFetch('/api/admin/change-path', {
+        method: 'POST',
+        body: JSON.stringify({ newPath })
+      });
+      pathMsg.textContent = data.message || (data.success ? '✅ 路径已更新' : '❌ 更新失败');
+      if (data.success) {
+        currentPathDisplay.textContent = newPath;
+        newPathInput.value = '';
+        setTimeout(() => {
+          alert(`后台路径已更新，请使用 ${window.location.origin}${newPath} 访问后台`);
+        }, 500);
+      }
+    });
+
+    tryAutoLogin();
+    console.log('👑 管理员后台加载完毕（仅元数据）');
+  })();
+</script>
+</body>
+</html>
